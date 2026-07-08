@@ -18,7 +18,7 @@ A full-stack mobile printing robot system built on the **RDK X5** development bo
 - [Hardware Requirements](#hardware-requirements)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
-- [License](#license)
+- [License](#license)   
 
 ---
 
