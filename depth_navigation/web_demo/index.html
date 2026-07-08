@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiDaS 参数校准工具 (C++)</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e; color: #eee; min-height: 100vh;
+        }
+        .header {
+            background: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
+            padding: 1rem 2rem; display: flex; justify-content: space-between;
+            align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .header h1 { font-size: 1.5rem; color: #e94560; }
+        .stats { display: flex; gap: 1.5rem; font-size: 0.9rem; }
+        .stat { background: rgba(255,255,255,0.1); padding: 0.5rem 1rem; border-radius: 8px; }
+        .stat-value { color: #53d8fb; font-weight: bold; }
+        .container {
+            display: grid; grid-template-columns: 1fr 380px; gap: 1rem;
+            padding: 1rem; max-width: 1600px; margin: 0 auto;
+        }
+        .video-section { background: #16213e; border-radius: 12px; padding: 1rem; }
+        .video-container {
+            position: relative; width: 100%; background: #000;
+            border-radius: 8px; overflow: hidden;
+        }
+        .video-container img { width: 100%; display: block; }
+        .video-label {
+            position: absolute; top: 10px; left: 10px;
+            background: rgba(0,0,0,0.7); padding: 0.3rem 0.8rem;
+            border-radius: 4px; font-size: 0.85rem;
+        }
+        .pointcloud-section {
+            margin-top: 1rem; background: #16213e; border-radius: 12px; padding: 1rem;
+        }
+        .pointcloud-container {
+            position: relative; width: 100%; height: 300px;
+            background: #0a0a0f; border-radius: 8px; overflow: hidden;
+        }
+        .pointcloud-canvas { width: 100%; height: 100%; }
+        .control-panel {
+            background: #16213e; border-radius: 12px; padding: 1.5rem;
+            height: fit-content; position: sticky; top: 1rem;
+        }
+        .panel-title {
+            font-size: 1.2rem; margin-bottom: 1rem; color: #e94560;
+            border-bottom: 1px solid #333; padding-bottom: 0.5rem;
+        }
+        .param-group { margin-bottom: 1.5rem; }
+        .param-group-title {
+            font-size: 0.9rem; color: #53d8fb; margin-bottom: 0.8rem;
+            text-transform: uppercase; letter-spacing: 1px;
+        }
+        .param-row { margin-bottom: 1rem; }
+        .param-label {
+            display: flex; justify-content: space-between;
+            margin-bottom: 0.3rem; font-size: 0.85rem;
+        }
+        .param-value { color: #53d8fb; font-weight: bold; font-family: monospace; }
+        input[type="range"] {
+            width: 100%; height: 6px; -webkit-appearance: none;
+            appearance: none; background: #333; border-radius: 3px; outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 18px; height: 18px;
+            background: #e94560; border-radius: 50%; cursor: pointer;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 18px; height: 18px; background: #e94560;
+            border-radius: 50%; cursor: pointer; border: none;
+        }
+        .btn-group { display: flex; gap: 0.5rem; margin-top: 1.5rem; }
+        .btn {
+            flex: 1; padding: 0.8rem; border: none; border-radius: 8px;
+            font-size: 0.9rem; font-weight: bold; cursor: pointer; transition: all 0.2s;
+        }
+        .btn-primary { background: #e94560; color: white; }
+        .btn-primary:hover { background: #ff6b6b; }
+        .btn-secondary { background: #333; color: #eee; }
+        .btn-secondary:hover { background: #444; }
+        .toast {
+            position: fixed; bottom: 20px; right: 20px; background: #2ecc71;
+            color: white; padding: 1rem 1.5rem; border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transform: translateY(100px); opacity: 0; transition: all 0.3s;
+        }
+        .toast.show { transform: translateY(0); opacity: 1; }
+        .toast.error { background: #e74c3c; }
+        .cpp-badge {
+            display: inline-block; background: #e94560; color: white;
+            padding: 2px 8px; border-radius: 4px; font-size: 0.7rem;
+            vertical-align: middle; margin-left: 8px;
+        }
+        /* FOV Calibration Modal */
+        #fov-modal {
+            display: none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.85);
+            z-index: 1000; overflow-y: auto;
+        }
+        .fov-inner {
+            max-width: 900px; margin: 2rem auto; background: #16213e;
+            border-radius: 12px; padding: 2rem;
+        }
+        .fov-header {
+            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 1.5rem;
+        }
+        .fov-instructions {
+            background: #0f3460; padding: 1rem; border-radius: 8px;
+            margin-bottom: 1.5rem; font-size: 0.9rem;
+        }
+        .fov-canvas-wrap {
+            position: relative; background: #000; border-radius: 8px;
+            overflow: hidden; margin-bottom: 1rem;
+        }
+        .fov-btn {
+            background: #e94560; color: white; border: none;
+            padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;
+        }
+        .fov-btn-alt { background: #333; }
+        @media (max-width: 1200px) {
+            .container { grid-template-columns: 1fr; }
+            .control-panel { position: static; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 MiDaS 校准工具 <span class="cpp-badge">C++</span></h1>
+        <div class="stats">
+            <div class="stat">FPS: <span class="stat-value" id="fps">0</span></div>
+            <div class="stat">推理: <span class="stat-value" id="infer_time">0</span>ms</div>
+            <div class="stat">点云: <span class="stat-value" id="point_count">0</span></div>
+            <div class="stat">深度: <span class="stat-value" id="depth_range">-</span></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div>
+            <div class="video-section">
+                <div class="video-container">
+                    <img src="/api/stream" alt="Camera + Depth">
+                    <div class="video-label">相机画面 | 深度图</div>
+                </div>
+            </div>
+            <div class="pointcloud-section">
+                <h3 style="margin-bottom:0.5rem;">🗺️ 点云鸟瞰图 (Bird's Eye View)</h3>
+                <div class="pointcloud-container">
+                    <canvas id="pointcloud-canvas" class="pointcloud-canvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h2 class="panel-title">参数调节</h2>
+
+            <div class="param-group">
+                <div class="param-group-title">📷 相机内参</div>
+                <div class="param-row">
+                    <div class="param-label"><span>水平FOV (fov_h)</span><span class="param-value" id="fov_h_val">73.7°</span></div>
+                    <input type="range" id="fov_h" min="40" max="90" step="0.5" value="73.7">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>垂直FOV (fov_v)</span><span class="param-value" id="fov_v_val">55.3°</span></div>
+                    <input type="range" id="fov_v" min="30" max="70" step="0.5" value="55.3">
+                </div>
+            </div>
+
+            <div class="param-group">
+                <div class="param-group-title">📍 相机外参</div>
+                <div class="param-row">
+                    <div class="param-label"><span>X偏移 (前向)</span><span class="param-value" id="camera_x_val">0.11m</span></div>
+                    <input type="range" id="camera_x" min="-0.5" max="0.5" step="0.01" value="0.11">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>Y偏移 (横向)</span><span class="param-value" id="camera_y_val">0.00m</span></div>
+                    <input type="range" id="camera_y" min="-0.3" max="0.3" step="0.01" value="0">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>Z高度 (离地)</span><span class="param-value" id="camera_z_val">0.72m</span></div>
+                    <input type="range" id="camera_z" min="0.3" max="1.5" step="0.01" value="0.72">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>Pitch俯仰角</span><span class="param-value" id="camera_pitch_val">0.0°</span></div>
+                    <input type="range" id="camera_pitch" min="-30" max="30" step="0.5" value="0">
+                </div>
+            </div>
+
+            <div class="param-group">
+                <div class="param-group-title">🔧 深度处理</div>
+                <div class="param-row">
+                    <div class="param-label"><span>最小深度</span><span class="param-value" id="min_depth_val">0.5m</span></div>
+                    <input type="range" id="min_depth" min="0.1" max="1.5" step="0.05" value="0.5">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>最大深度</span><span class="param-value" id="max_depth_val">3.5m</span></div>
+                    <input type="range" id="max_depth" min="2.0" max="6.0" step="0.1" value="3.5">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>地面阈值</span><span class="param-value" id="ground_height_threshold_val">0.25m</span></div>
+                    <input type="range" id="ground_height_threshold" min="0.05" max="0.5" step="0.01" value="0.25">
+                </div>
+                <div class="param-row">
+                    <div class="param-label"><span>点云步长</span><span class="param-value" id="point_stride_val">6</span></div>
+                    <input type="range" id="point_stride" min="2" max="16" step="1" value="6">
+                </div>
+            </div>
+
+            <div style="margin-top:1rem;">
+                <button class="btn btn-secondary" style="width:100%;background:#0f3460;color:#53d8fb;" onclick="openFovCalibration()">🎯 FOV 校准助手</button>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-secondary" onclick="resetParams()">重置</button>
+                <button class="btn btn-primary" onclick="saveParams()">💾 保存参数</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <!-- FOV Calibration Modal -->
+    <div id="fov-modal">
+        <div class="fov-inner">
+            <div class="fov-header">
+                <h2 style="color:#e94560;">🎯 FOV 校准助手</h2>
+                <button class="fov-btn fov-btn-alt" onclick="closeFovCalibration()">✕ 关闭</button>
+            </div>
+            <div class="fov-instructions">
+                <strong>使用方法：</strong>
+                <ol style="margin:0.5rem 0 0 1.5rem;">
+                    <li>在相机前方 <strong>1-2米</strong> 处放置一个 <strong>已知宽度</strong> 的物体</li>
+                    <li>点击 <strong>"拍照"</strong> 获取快照</li>
+                    <li>在图像上 <strong>点击物体左边缘</strong>，再 <strong>点击右边缘</strong></li>
+                    <li>输入 <strong>实际宽度</strong> 和 <strong>距离</strong></li>
+                    <li>点击 <strong>"计算 FOV"</strong></li>
+                </ol>
+            </div>
+            <div class="fov-canvas-wrap">
+                <canvas id="fov-canvas" style="display:block;width:100%;cursor:crosshair;"></canvas>
+                <div style="position:absolute;top:10px;right:10px;display:flex;gap:0.5rem;">
+                    <button class="fov-btn" onclick="captureSnapshot()">📷 拍照</button>
+                    <button class="fov-btn fov-btn-alt" onclick="clearFovPoints()">🗑️ 清除</button>
+                </div>
+            </div>
+            <div style="background:#0a0a0f;padding:1rem;border-radius:8px;margin-bottom:1rem;font-family:monospace;">
+                <div>点1: <span id="fov-p1" style="color:#53d8fb;">未设置</span></div>
+                <div>点2: <span id="fov-p2" style="color:#53d8fb;">未设置</span></div>
+                <div>像素距离: <span id="fov-px" style="color:#e94560;">-</span></div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+                <div>
+                    <label style="display:block;margin-bottom:0.3rem;font-size:0.85rem;">物体实际宽度 (米)</label>
+                    <input type="number" id="fov-width" step="0.01" value="0.30" style="width:100%;padding:0.6rem;background:#0a0a0f;border:1px solid #333;border-radius:6px;color:white;">
+                </div>
+                <div>
+                    <label style="display:block;margin-bottom:0.3rem;font-size:0.85rem;">物体到相机距离 (米)</label>
+                    <input type="number" id="fov-dist" step="0.1" value="1.50" style="width:100%;padding:0.6rem;background:#0a0a0f;border:1px solid #333;border-radius:6px;color:white;">
+                </div>
+            </div>
+            <div style="display:flex;gap:1rem;align-items:center;">
+                <button onclick="calculateFov()" style="flex:1;background:#2ecc71;color:white;border:none;padding:0.8rem;border-radius:8px;font-size:1rem;font-weight:bold;cursor:pointer;">🧮 计算 FOV</button>
+                <div id="fov-result" style="flex:2;background:#0a0a0f;padding:1rem;border-radius:8px;font-family:monospace;text-align:center;">
+                    <span style="color:#888;">点击"计算 FOV"查看结果</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const params = {
+            fov_h: { suffix: '°', decimals: 1 },
+            fov_v: { suffix: '°', decimals: 1 },
+            camera_x: { suffix: 'm', decimals: 2 },
+            camera_y: { suffix: 'm', decimals: 2 },
+            camera_z: { suffix: 'm', decimals: 2 },
+            camera_pitch: { suffix: '°', decimals: 1 },
+            min_depth: { suffix: 'm', decimals: 2 },
+            max_depth: { suffix: 'm', decimals: 1 },
+            ground_height_threshold: { suffix: 'm', decimals: 2 },
+            point_stride: { suffix: '', decimals: 0 },
+        };
+
+        async function loadParams() {
+            const r = await fetch('/api/params');
+            const cfg = await r.json();
+            for (const [k, v] of Object.entries(cfg)) {
+                const s = document.getElementById(k);
+                if (s) { s.value = v; updateLabel(k, v); }
+            }
+        }
+
+        function updateLabel(k, v) {
+            const p = params[k];
+            if (!p) return;
+            document.getElementById(`${k}_val`).textContent = Number(v).toFixed(p.decimals) + p.suffix;
+        }
+
+        for (const k of Object.keys(params)) {
+            const s = document.getElementById(k);
+            if (s) s.addEventListener('input', e => {
+                const v = parseFloat(e.target.value);
+                updateLabel(k, v);
+                debouncedUpdate(k, v);
+            });
+        }
+
+        let _to = null;
+        function debouncedUpdate(k, v) {
+            clearTimeout(_to);
+            _to = setTimeout(() => {
+                fetch('/api/params', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({[k]: v})
+                });
+            }, 100);
+        }
+
+        async function saveParams() {
+            const r = await fetch('/api/save', {method: 'POST'});
+            const d = await r.json();
+            showToast(d.success ? '✅ 参数已保存！' : '❌ 保存失败', !d.success);
+        }
+
+        async function resetParams() {
+            await fetch('/api/reset', {method: 'POST'});
+            await loadParams();
+            showToast('✅ 参数已重置');
+        }
+
+        function showToast(msg, err = false) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.className = 'toast show' + (err ? ' error' : '');
+            setTimeout(() => { t.className = 'toast'; }, 3000);
+        }
+
+        async function updateStats() {
+            try {
+                const r = await fetch('/api/stats');
+                const s = await r.json();
+                document.getElementById('fps').textContent = s.fps.toFixed(1);
+                document.getElementById('infer_time').textContent = s.infer_time.toFixed(1);
+                document.getElementById('point_count').textContent = s.point_count;
+                document.getElementById('depth_range').textContent =
+                    `${s.depth_range[0].toFixed(0)}-${s.depth_range[1].toFixed(0)}`;
+            } catch(e) {}
+        }
+
+        // Point cloud bird's eye view
+        const canvas = document.getElementById('pointcloud-canvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+
+        async function updatePointCloud() {
+            try {
+                const r = await fetch('/api/pointcloud');
+                const d = await r.json();
+                drawBEV(d.points);
+            } catch(e) {}
+        }
+
+        function drawBEV(points) {
+            const w = canvas.width, h = canvas.height;
+            ctx.fillStyle = '#0a0a0f';
+            ctx.fillRect(0, 0, w, h);
+
+            const scale = 100;
+            const cx = w / 2, cy = h * 0.85;
+
+            // Grid
+            ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+            for (let i = -5; i <= 5; i++) {
+                ctx.beginPath(); ctx.moveTo(cx + i*scale*0.5, 0); ctx.lineTo(cx + i*scale*0.5, h); ctx.stroke();
+            }
+            for (let i = 0; i <= 10; i++) {
+                ctx.beginPath(); ctx.moveTo(0, cy - i*scale*0.5); ctx.lineTo(w, cy - i*scale*0.5); ctx.stroke();
+            }
+            ctx.strokeStyle = '#333'; ctx.lineWidth = 2;
+            for (let i = -5; i <= 5; i++) {
+                ctx.beginPath(); ctx.moveTo(cx + i*scale, 0); ctx.lineTo(cx + i*scale, h); ctx.stroke();
+            }
+            for (let i = 1; i <= 5; i++) {
+                ctx.beginPath(); ctx.moveTo(0, cy - i*scale); ctx.lineTo(w, cy - i*scale); ctx.stroke();
+            }
+
+            // Distance arcs
+            ctx.font = 'bold 13px monospace';
+            for (let d = 0.5; d <= 5; d += 0.5) {
+                const r = d * scale;
+                const major = (d % 1 === 0);
+                ctx.strokeStyle = major ? '#555' : '#2a2a2a';
+                ctx.lineWidth = major ? 2 : 1;
+                ctx.setLineDash(major ? [] : [5,5]);
+                ctx.beginPath(); ctx.arc(cx, cy, r, -Math.PI*0.85, -Math.PI*0.15); ctx.stroke();
+                ctx.setLineDash([]);
+                if (d <= 4) {
+                    const ly = cy - r;
+                    ctx.fillStyle = '#0a0a0f'; ctx.fillRect(3, ly-8, 35, 16);
+                    ctx.fillStyle = major ? '#53d8fb' : '#666';
+                    ctx.fillText(major ? `${d}m` : `${d.toFixed(1)}m`, 5, ly+5);
+                }
+            }
+
+            // Robot
+            ctx.fillStyle = '#e94560';
+            ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = '#e94560'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy-20); ctx.stroke();
+
+            // Points
+            if (points) {
+                for (const [x, y, z] of points) {
+                    const sx = cx - y * scale;
+                    const sy = cy - x * scale;
+                    ctx.fillStyle = z < 0.3 ? '#3498db' : z < 0.8 ? '#2ecc71' : '#e74c3c';
+                    ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI*2); ctx.fill();
+                }
+            }
+
+            // Legend
+            ctx.fillStyle = '#888'; ctx.font = '10px sans-serif';
+            ctx.fillText('🔵 低矮', w-70, 15);
+            ctx.fillText('🟢 中等', w-70, 30);
+            ctx.fillText('🔴 高处', w-70, 45);
+        }
+
+        loadParams();
+        setInterval(updateStats, 500);
+        setInterval(updatePointCloud, 200);
+        drawBEV([]);
+
+        // FOV Calibration
+        let fovPts = [], fovImg = null;
+        const fovCanvas = document.getElementById('fov-canvas');
+        const fovCtx = fovCanvas.getContext('2d');
+
+        function openFovCalibration() {
+            document.getElementById('fov-modal').style.display = 'block';
+            fovPts = []; updateFovInfo();
+        }
+        function closeFovCalibration() {
+            document.getElementById('fov-modal').style.display = 'none';
+        }
+        async function captureSnapshot() {
+            try {
+                const r = await fetch('/api/snapshot');
+                if (!r.ok) { showToast('❌ 无法获取快照', true); return; }
+                const blob = await r.blob();
+                fovImg = new Image();
+                fovImg.onload = () => {
+                    fovCanvas.width = fovImg.width;
+                    fovCanvas.height = fovImg.height;
+                    drawFov();
+                    showToast('✅ 快照已获取');
+                };
+                fovImg.src = URL.createObjectURL(blob);
+                fovCanvas.onclick = handleFovClick;
+            } catch(e) { showToast('❌ ' + e.message, true); }
+        }
+        function handleFovClick(e) {
+            if (!fovImg) return;
+            const rect = fovCanvas.getBoundingClientRect();
+            const x = Math.round((e.clientX - rect.left) * fovCanvas.width / rect.width);
+            const y = Math.round((e.clientY - rect.top) * fovCanvas.height / rect.height);
+            if (fovPts.length >= 2) fovPts = [];
+            fovPts.push({x, y});
+            drawFov(); updateFovInfo();
+        }
+        function drawFov() {
+            if (!fovCtx || !fovImg) return;
+            fovCtx.drawImage(fovImg, 0, 0);
+            fovPts.forEach((pt, i) => {
+                fovCtx.fillStyle = i === 0 ? '#e94560' : '#53d8fb';
+                fovCtx.strokeStyle = 'white'; fovCtx.lineWidth = 2;
+                fovCtx.beginPath(); fovCtx.arc(pt.x, pt.y, 8, 0, Math.PI*2);
+                fovCtx.fill(); fovCtx.stroke();
+                fovCtx.fillStyle = 'white'; fovCtx.font = 'bold 14px sans-serif';
+                fovCtx.fillText(`P${i+1}`, pt.x+12, pt.y-12);
+            });
+            if (fovPts.length === 2) {
+                fovCtx.strokeStyle = '#2ecc71'; fovCtx.lineWidth = 3;
+                fovCtx.setLineDash([5,5]);
+                fovCtx.beginPath(); fovCtx.moveTo(fovPts[0].x, fovPts[0].y);
+                fovCtx.lineTo(fovPts[1].x, fovPts[1].y); fovCtx.stroke();
+                fovCtx.setLineDash([]);
+            }
+        }
+        function clearFovPoints() { fovPts = []; drawFov(); updateFovInfo(); }
+        function updateFovInfo() {
+            document.getElementById('fov-p1').textContent = fovPts[0] ? `(${fovPts[0].x}, ${fovPts[0].y})` : '未设置';
+            document.getElementById('fov-p2').textContent = fovPts[1] ? `(${fovPts[1].x}, ${fovPts[1].y})` : '未设置';
+            if (fovPts.length === 2) {
+                const d = Math.hypot(fovPts[1].x-fovPts[0].x, fovPts[1].y-fovPts[0].y);
+                document.getElementById('fov-px').textContent = d.toFixed(1) + ' px';
+            } else {
+                document.getElementById('fov-px').textContent = '-';
+            }
+        }
+        function calculateFov() {
+            if (fovPts.length !== 2) { showToast('❌ 请先点击两个点', true); return; }
+            const rw = parseFloat(document.getElementById('fov-width').value);
+            const dist = parseFloat(document.getElementById('fov-dist').value);
+            if (!rw || !dist || rw <= 0 || dist <= 0) { showToast('❌ 请输入有效值', true); return; }
+            const px = Math.hypot(fovPts[1].x-fovPts[0].x, fovPts[1].y-fovPts[0].y);
+            if (px < 10) { showToast('❌ 两个点太近', true); return; }
+            const iw = fovCanvas.width, ih = fovCanvas.height;
+            const fh = 2 * Math.atan((iw * rw) / (2 * px * dist)) * 180 / Math.PI;
+            const fv = fh * (ih / iw);
+            document.getElementById('fov-result').innerHTML = `
+                <div style="color:#2ecc71;font-size:1.2rem;font-weight:bold;">fov_h = ${fh.toFixed(1)}°</div>
+                <div style="color:#53d8fb;margin-top:0.3rem;">fov_v = ${fv.toFixed(1)}°</div>
+                <button onclick="applyFov(${fh.toFixed(2)},${fv.toFixed(2)})" class="fov-btn" style="margin-top:0.5rem;">✓ 应用</button>`;
+            showToast(`✅ fov_h=${fh.toFixed(1)}°, fov_v=${fv.toFixed(1)}°`);
+        }
+        function applyFov(fh, fv) {
+            document.getElementById('fov_h').value = fh;
+            document.getElementById('fov_v').value = fv;
+            updateLabel('fov_h', fh); updateLabel('fov_v', fv);
+            debouncedUpdate('fov_h', fh); debouncedUpdate('fov_v', fv);
+            showToast('✅ FOV 已应用，记得保存！');
+            closeFovCalibration();
+        }
+    </script>
+</body>
+</html>

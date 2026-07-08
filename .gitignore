@@ -1,0 +1,36 @@
+# Rust
+target/
+**/*.rs.bk
+
+# Binaries
+printer_backend/printer_backend
+depth_navigation/midas_depth_cpp
+depth_navigation/web_demo/midas_web_demo
+
+# Archives
+*.zip
+*.tar.gz
+
+# Model files (large)
+depth_navigation/models/*.bin
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Flutter
+mobile_app/.dart_tool/
+mobile_app/.packages
+mobile_app/build/
+mobile_app/.flutter-plugins
+mobile_app/.flutter-plugins-dependencies
+
+# ROS 2
+**/log/
+**/install/
+**/build/

@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>打印机控制面板</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:       #f0f2f5;
+            --surface:  #ffffff;
+            --surface2: #f7f8fa;
+            --border:   #e2e5ea;
+            --border-hi:#cdd3dc;
+            --cyan:     #0091b3;
+            --cyan-10:  rgba(0,145,179,.08);
+            --cyan-05:  rgba(0,145,179,.04);
+            --green:    #16a34a;
+            --green-10: rgba(22,163,74,.08);
+            --amber:    #d97706;
+            --amber-10: rgba(217,119,6,.08);
+            --red:      #dc2626;
+            --red-10:   rgba(220,38,38,.06);
+            --text:     #1a1d23;
+            --text-2:   #3b4252;
+            --muted:    #6b7280;
+            --dim:      #9ca3af;
+            --ring-bg:  #e5e7eb;
+        }
+
+        html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+
+        body {
+            font-family: 'DM Mono', ui-monospace, 'Cascadia Code', monospace;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+        }
+
+        /* ---- Shell ---- */
+        .shell {
+            width: 480px; max-width: 100%;
+            display: flex; flex-direction: column; gap: 2px;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow:
+                0 0 0 1px var(--border),
+                0 2px 8px rgba(0,0,0,.04),
+                0 8px 32px rgba(0,0,0,.06);
+            animation: shellIn .6s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes shellIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ---- Card ---- */
+        .card {
+            background: var(--surface);
+            padding: 20px 22px;
+        }
+
+        /* ---- Header ---- */
+        .hdr {
+            display: flex; align-items: center; gap: 14px;
+            padding: 22px 22px 18px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+        }
+        .hdr-icon {
+            width: 48px; height: 48px;
+            display: flex; align-items: center; justify-content: center;
+            background: var(--cyan-10);
+            border: 1px solid rgba(0,145,179,.12);
+            border-radius: 12px;
+            font-size: 1.4rem;
+            flex-shrink: 0;
+        }
+        .hdr-text { flex: 1; }
+        .hdr-text h1 {
+            font-family: 'Bebas Neue', Impact, sans-serif;
+            font-size: 1.5rem;
+            letter-spacing: .12em;
+            color: var(--text);
+            line-height: 1.1;
+        }
+        .hdr-text h1 span { color: var(--cyan); }
+        .hdr-sub {
+            font-size: .6rem;
+            color: var(--dim);
+            letter-spacing: .04em;
+            margin-top: 3px;
+        }
+        .conn {
+            display: flex; align-items: center; gap: 7px;
+            padding: 5px 12px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            font-size: .6rem;
+            color: var(--muted);
+            flex-shrink: 0;
+        }
+        .conn-i {
+            width: 6px; height: 6px; border-radius: 50%;
+            background: var(--red);
+            transition: all .4s;
+        }
+        .conn-i.ok {
+            background: var(--green);
+            box-shadow: 0 0 6px rgba(22,163,74,.35);
+        }
+
+        /* ---- Section titles ---- */
+        .sect {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 10px;
+        }
+        .sect-bar {
+            width: 3px; height: 11px;
+            background: var(--cyan);
+            border-radius: 2px;
+        }
+        .sect-label {
+            font-size: .58rem;
+            font-weight: 500;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+            color: var(--dim);
+        }
+
+        /* ---- Status ---- */
+        .st-box {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            min-height: 48px;
+            transition: border-color .3s;
+        }
+        .st-box.live { border-color: var(--cyan); background: var(--cyan-05); }
+
+        .st-led {
+            width: 9px; height: 9px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            transition: all .3s;
+        }
+        .st-led.idle    { background: var(--dim); }
+        .st-led.moving  { background: var(--cyan);  box-shadow: 0 0 8px rgba(0,145,179,.35); animation: led 1.2s ease-in-out infinite; }
+        .st-led.print   { background: var(--green); box-shadow: 0 0 8px rgba(22,163,74,.35); animation: led 1.2s ease-in-out infinite; }
+        .st-led.err     { background: var(--red);   box-shadow: 0 0 8px rgba(220,38,38,.3); }
+        @keyframes led { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(.7);opacity:.5} }
+
+        .st-text {
+            font-size: .8rem;
+            color: var(--text-2);
+            line-height: 1.3;
+        }
+        .st-text .loc { color: var(--cyan); font-weight: 500; }
+        .st-text .n   { color: var(--muted); font-size: .72rem; }
+
+        .prog {
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+        .prog-bar {
+            height: 100%; width: 0%;
+            background: linear-gradient(90deg, var(--cyan), var(--green));
+            border-radius: 2px;
+            transition: width .5s cubic-bezier(.16,1,.3,1);
+        }
+
+        /* ---- Log ---- */
+        .log-head {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .log-cnt {
+            font-size: .55rem;
+            color: var(--dim);
+            background: var(--surface2);
+            padding: 2px 8px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+        .log-scroll {
+            max-height: 120px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        .log-scroll::-webkit-scrollbar { width: 3px; }
+        .log-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .log-row {
+            display: flex; align-items: baseline; gap: 10px;
+            padding: 4px 0;
+            font-size: .66rem;
+            border-bottom: 1px solid var(--border);
+            animation: logIn .25s ease both;
+        }
+        .log-row:last-child { border-bottom: none; }
+        @keyframes logIn { from{opacity:0;transform:translateX(-4px)} to{opacity:1;transform:translateX(0)} }
+        .log-t { color: var(--dim); font-size: .58rem; white-space: nowrap; flex-shrink: 0; }
+        .log-m { color: var(--muted); flex: 1; line-height: 1.3; word-break: break-all; }
+        .log-row.ok  .log-m { color: var(--green); }
+        .log-row.err .log-m { color: var(--red); }
+
+        /* ---- Confirm ---- */
+        .cfm {
+            display: none;
+            text-align: center;
+        }
+        .cfm.show {
+            display: block;
+            animation: cfmIn .5s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes cfmIn { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
+
+        .cfm-title {
+            font-size: .58rem;
+            font-weight: 500;
+            letter-spacing: .16em;
+            text-transform: uppercase;
+            color: var(--dim);
+            margin-bottom: 16px;
+        }
+
+        /* ring */
+        .rng {
+            position: relative;
+            width: 104px; height: 104px;
+            margin: 0 auto 18px;
+        }
+        .rng svg { transform: rotate(-90deg); width: 100%; height: 100%; }
+        .rng-track { fill: none; stroke: var(--ring-bg); stroke-width: 5; }
+        .rng-bar {
+            fill: none; stroke: var(--cyan); stroke-width: 5; stroke-linecap: round;
+            transition: stroke-dashoffset .8s linear, stroke .3s;
+        }
+        .rng-bar.warn { stroke: var(--amber); }
+        .rng-center {
+            position: absolute; inset: 0;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+        }
+        .rng-n {
+            font-family: 'Bebas Neue', Impact, sans-serif;
+            font-size: 2.1rem;
+            color: var(--cyan);
+            line-height: 1;
+            transition: color .3s;
+        }
+        .rng-n.warn { color: var(--amber); }
+        .rng-u {
+            font-size: .48rem;
+            color: var(--dim);
+            letter-spacing: .2em;
+            margin-top: 2px;
+        }
+
+        /* button */
+        .btn {
+            width: 100%; padding: 14px;
+            background: var(--cyan);
+            color: #fff; border: none; border-radius: 10px;
+            font-family: 'DM Mono', monospace;
+            font-size: .875rem; font-weight: 500;
+            letter-spacing: .08em;
+            cursor: pointer;
+            transition: all .25s ease;
+        }
+        .btn:hover {
+            background: #007a96;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(0,145,179,.2);
+        }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled {
+            opacity: .35; cursor: not-allowed;
+            transform: none !important; box-shadow: none !important;
+        }
+        .btn.done { background: var(--green); }
+
+        .spin {
+            display: inline-block; width: 13px; height: 13px;
+            border: 2px solid transparent; border-top-color: currentColor;
+            border-radius: 50%;
+            animation: sp .6s linear infinite;
+            vertical-align: middle; margin-right: 6px;
+        }
+        @keyframes sp { to{transform:rotate(360deg)} }
+
+        /* toast */
+        .tst {
+            margin-top: 12px; padding: 9px 14px;
+            border-radius: 8px; font-size: .72rem;
+            display: none; line-height: 1.4;
+        }
+        .tst.show { display: block; }
+        .tst.ok {
+            background: var(--green-10); color: var(--green);
+            border: 1px solid rgba(22,163,74,.12);
+        }
+        .tst.timeout {
+            background: var(--amber-10); color: var(--amber);
+            border: 1px solid rgba(217,119,6,.12);
+        }
+
+        /* ---- Footer ---- */
+        .foot {
+            padding: 9px 22px;
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            text-align: center;
+            font-size: .5rem;
+            color: var(--dim);
+            letter-spacing: .16em;
+            text-transform: uppercase;
+        }
+
+        /* ---- Responsive ---- */
+        @media (max-width: 520px) {
+            .shell { border-radius: 12px; }
+            .hdr { padding: 16px 16px 14px; gap: 10px; }
+            .hdr-icon { width: 40px; height: 40px; font-size: 1.2rem; }
+            .hdr-text h1 { font-size: 1.3rem; }
+            .card { padding: 16px; }
+            .rng { width: 90px; height: 90px; }
+            .rng-n { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <!-- Header -->
+        <div class="hdr">
+            <div class="hdr-icon">🖨️</div>
+            <div class="hdr-text">
+                <h1>PRINTER <span>CONTROL</span></h1>
+                <div class="hdr-sub">打印监控 · Realtime Monitor</div>
+            </div>
+            <div class="conn">
+                <span class="conn-i" id="cDot"></span>
+                <span id="cTxt">连接中...</span>
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div class="card">
+            <div class="sect">
+                <div class="sect-bar"></div>
+                <span class="sect-label">实时状态</span>
+            </div>
+            <div class="st-box" id="stBox">
+                <span class="st-led idle" id="led"></span>
+                <span class="st-text" id="stTxt">空闲</span>
+            </div>
+            <div class="prog"><div class="prog-bar" id="prog"></div></div>
+        </div>
+
+        <!-- Log -->
+        <div class="card">
+            <div class="log-head">
+                <div class="sect" style="margin:0">
+                    <div class="sect-bar"></div>
+                    <span class="sect-label">事件日志</span>
+                </div>
+                <span class="log-cnt" id="lCnt">0</span>
+            </div>
+            <div class="log-scroll" id="lBox"></div>
+        </div>
+
+        <!-- Confirm -->
+        <div class="card cfm" id="cfm">
+            <div class="cfm-title">等待确认 · 点击确认或等待超时自动继续</div>
+            <div class="rng">
+                <svg viewBox="0 0 104 104">
+                    <circle class="rng-track" cx="52" cy="52" r="44"/>
+                    <circle class="rng-bar" id="ring" cx="52" cy="52" r="44"
+                        stroke-dasharray="276.46" stroke-dashoffset="0"/>
+                </svg>
+                <div class="rng-center">
+                    <span class="rng-n" id="sec">--</span>
+                    <span class="rng-u">SEC</span>
+                </div>
+            </div>
+            <button class="btn" id="btn">确认完成</button>
+            <div class="tst" id="tst"></div>
+        </div>
+
+        <div class="foot">Printer Backend v1.0</div>
+    </div>
+
+    <script>
+        const SSE  = location.protocol + '//' + location.hostname + ':3000/api/events';
+        const POST = '/api/complete';
+        const TOTAL = 120;
+        const CIRC  = 2 * Math.PI * 44; // ~276.46
+
+        const $cDot  = document.getElementById('cDot');
+        const $cTxt  = document.getElementById('cTxt');
+        const $led   = document.getElementById('led');
+        const $stBox = document.getElementById('stBox');
+        const $stTxt = document.getElementById('stTxt');
+        const $prog  = document.getElementById('prog');
+        const $lBox  = document.getElementById('lBox');
+        const $lCnt  = document.getElementById('lCnt');
+        const $cfm   = document.getElementById('cfm');
+        const $ring  = document.getElementById('ring');
+        const $sec   = document.getElementById('sec');
+        const $btn   = document.getElementById('btn');
+        const $tst   = document.getElementById('tst');
+
+        let lc = 0, cfmActive = false, cfmDone = false;
+        $ring.style.strokeDasharray = CIRC;
+        $ring.style.strokeDashoffset = '0';
+
+        // ---- SSE ----
+        function connect() {
+            const es = new EventSource(SSE);
+            es.onopen  = () => { $cDot.classList.add('ok'); $cTxt.textContent = '已连接'; };
+            es.onerror = () => { $cDot.classList.remove('ok'); $cTxt.textContent = '重连中...'; };
+            es.onmessage = e => { try { onEvent(JSON.parse(e.data)); } catch(_){} };
+        }
+
+        function onEvent(ev) {
+            const k = Object.keys(ev)[0], d = ev[k];
+            switch (k) {
+                case 'Idle':
+                    set('idle', '空闲');
+                    $prog.style.width = '0%';
+                    break;
+                case 'MovingTo':
+                    set('moving', '移动中 → <span class="loc">' + d.location_name + '</span>');
+                    log('前往 ' + d.location_name);
+                    hideCfm();
+                    break;
+                case 'MoveComplete':
+                    log('已到达', 'ok');
+                    break;
+                case 'BatchStarted':
+                    set('print', '打印批次 · <span class="loc">' + d.location_name +
+                        '</span> <span class="n">(' + d.total_jobs + ')</span>');
+                    log('开始 ' + d.total_jobs + ' 个任务 @ ' + d.location_name);
+                    $prog.style.width = '5%';
+                    break;
+                case 'PrintStarted':
+                    set('print', '打印中 · ' + d.store_name +
+                        ' <span class="n">' + (d.job_index+1) + '/' + d.total_jobs + '</span>');
+                    log('打印 ' + d.store_name);
+                    break;
+                case 'PrintComplete':
+                    log('✓ ' + d.store_name, 'ok');
+                    break;
+                case 'PrintFailed':
+                    log('✗ ' + d.store_name + ': ' + d.msg, 'err');
+                    break;
+                case 'BatchComplete':
+                    set('idle', '批次完成 · ' + d.location_name +
+                        ' <span class="n">成功 ' + d.succeeded + ' / 失败 ' + d.failed + '</span>');
+                    $prog.style.width = '100%';
+                    log('完成 成功' + d.succeeded + ' 失败' + d.failed, d.failed > 0 ? 'err' : 'ok');
+                    showCfm();
+                    break;
+                case 'ConfirmTick':
+                    onTick(d.remaining_secs);
+                    break;
+                case 'NavError':
+                    set('err', '导航错误 · ' + d.msg);
+                    log('导航错误: ' + d.msg, 'err');
+                    break;
+                case 'SchedulerError':
+                    set('err', '调度错误 · ' + d.msg);
+                    log('调度错误: ' + d.msg, 'err');
+                    break;
+            }
+        }
+
+        function set(type, html) {
+            $led.className = 'st-led ' + type;
+            $stTxt.innerHTML = html;
+            $stBox.classList.toggle('live', type !== 'idle');
+        }
+
+        function log(msg, cls) {
+            const r = document.createElement('div');
+            r.className = 'log-row' + (cls ? ' ' + cls : '');
+            r.innerHTML = '<span class="log-t">' +
+                new Date().toLocaleTimeString('zh-CN',{hour12:false}) +
+                '</span><span class="log-m">' + msg + '</span>';
+            $lBox.appendChild(r);
+            $lBox.scrollTop = $lBox.scrollHeight;
+            $lCnt.textContent = ++lc;
+            while ($lBox.children.length > 80) $lBox.removeChild($lBox.firstChild);
+        }
+
+        // ---- Confirm (tick-driven, no local timer) ----
+        function showCfm() {
+            if (cfmActive) return;
+            cfmActive = true;
+            cfmDone = false;
+            $sec.textContent = '--';
+            $sec.classList.remove('warn');
+            $ring.classList.remove('warn');
+            $ring.style.strokeDashoffset = '0';
+            $btn.disabled = false;
+            $btn.textContent = '确认完成';
+            $btn.classList.remove('done');
+            $tst.className = 'tst';
+            $cfm.classList.add('show');
+        }
+
+        function onTick(remaining) {
+            if (cfmDone) return;
+            if (!cfmActive) showCfm();
+
+            $sec.textContent = remaining;
+            // ring fill: how much time has elapsed
+            $ring.style.strokeDashoffset = CIRC * (1 - remaining / TOTAL);
+
+            if (remaining <= 30) {
+                $ring.classList.add('warn');
+                $sec.classList.add('warn');
+            } else {
+                $ring.classList.remove('warn');
+                $sec.classList.remove('warn');
+            }
+
+            if (remaining <= 0 && !cfmDone) {
+                cfmDone = true;
+                $btn.disabled = true;
+                $btn.textContent = '已超时';
+                $tst.textContent = '超时未确认，自动继续';
+                $tst.className = 'tst show timeout';
+            }
+        }
+
+        function hideCfm() {
+            cfmActive = false;
+            cfmDone = true;
+            $cfm.classList.remove('show');
+        }
+
+        $btn.addEventListener('click', async () => {
+            if (cfmDone) return;
+            cfmDone = true;
+            $btn.disabled = true;
+            $btn.innerHTML = '<span class="spin"></span>提交中...';
+            try { await fetch(POST, { method: 'POST' }); } catch(_){}
+            $btn.innerHTML = '✓ 已确认';
+            $btn.classList.add('done');
+            $tst.textContent = '已确认，继续下一个任务';
+            $tst.className = 'tst show ok';
+        });
+
+        connect();
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# =============================================================================
+# MiDaS Depth Node (C++) Parameters — RDK X5
+# =============================================================================
+# NOTE: Node name MUST be midas_depth_cpp (not midas_depth) to match C++ node
+# Calibrated via Web Interface: 2026-07-07
+# =============================================================================
+
+# --- MiDaS Depth Node (C++) ---
+midas_depth_cpp:
+  ros__parameters:
+    # MiDaS model
+    model_path: "/path/to/midas_nav_alt/models/midas_small_384_v2.bin"
+    
+    # Camera settings (C++ uses camera_id integer, not device path)
+    camera_id: 0
+    camera_width: 640
+    camera_height: 480
+    fps: 30.0
+    
+    # Camera intrinsics (FOV-based)
+    fov_h: 73.7              # horizontal FOV (degrees)
+    fov_v: 55.3              # vertical FOV (degrees)
+    
+    # Camera extrinsics (mounting position relative to base_link)
+    camera_x: 0.11           # forward offset (m)
+    camera_y: 0.0            # lateral offset (m)
+    camera_z: 0.72           # height above ground (m)
+    camera_pitch: 0.0        # tilt down (degrees, positive = looking down)
+    
+    # Depth processing — Near-field instantaneous obstacle mode
+    min_depth: 0.25          # detect very close obstacles (0.25m)
+    max_depth: 1.2           # ONLY care about 1.2m ahead — instant reaction zone
+    ground_height_threshold: 0.28  # stricter ground filter (higher = fewer ground false positives)
+    point_stride: 8          # sparser cloud (~1500 pts) — less CPU, faster processing
+    publish_rate: 30.0       # higher rate for faster obstacle reaction
+    
+    # Foxglove 3D view support
+    publish_camera_info: true    # publish /camera_info for Foxglove 3D panel
+    publish_raw_image: true      # publish /camera/image_raw for Foxglove camera view
+    camera_info_topic: "/camera_info"
+    image_topic: "/camera/image_raw"

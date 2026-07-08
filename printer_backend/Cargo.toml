@@ -1,0 +1,27 @@
+[package]
+name = "printer_backend"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+axum = { version = "0.8.9", features = ["multipart"] }
+chrono = { version = "0.4.44", features = ["serde"] }
+futures = "0.3.32"
+futures-util = "0.3.32"
+printers = "2.3.0"
+r2r = "0.9.5"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+thiserror = "2.0.18"
+tokio = { version = "1.52.1", features = ["full"] }
+tower = { version = "0.5", features = ["util"] }
+tower-http = { version = "0.6.8", features = ["cors"] }
+tracing = "0.1.44"
+rust-embed = "8"
+dashmap = "6"
+mime_guess = "2"
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
+uuid = { version = "1.23.1", features = ["serde", "v4"] }
+
+[build-dependencies]
+r2r = "0.9.5"

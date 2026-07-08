@@ -1,0 +1,3 @@
+# Stakpak session files
+.stakpak/session*
+/target
